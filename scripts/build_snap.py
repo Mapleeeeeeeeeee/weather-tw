@@ -34,7 +34,7 @@ API = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/{}?Authorization={}&for
 # 22 counties: (3-day id, 1-week id); 001/003 Yilan, 005/007 Taoyuan ... 085/087 Kinmen
 COUNTY_IDS = [("F-D0047-%03d" % n, "F-D0047-%03d" % (n + 2)) for n in range(1, 87, 4)]
 LIVE_URL = "https://weather-tw.pages.dev/"
-HOURLY_ROWS = 48  # how many hourly rows to keep per town
+HOURLY_ROWS = 96  # how many hourly rows to keep per town
 
 
 def get_json(dataset, key):

@@ -737,14 +737,19 @@ const lanes = (names, head, rows, wide, ics, texts) => {
     rows.map((r, k) => (above ? '<span class="lcap">' + names[k] + '</span>' : "") + cells(r, k)).join("") + '</div></div></div>';
 };
 const fmt = v => v >= 0 ? v + "%" : "未定";
-function hourStrip(X) {
-  const per = X.per, ts = per.map(q => q.T), tMax = Math.max(...ts), tMin = Math.min(...ts), iMax = ts.indexOf(tMax), iMin = ts.indexOf(tMin);
+function hourStrip(X, per = X.per, today = true) {
+  const ts = per.map(q => q.T), tMax = Math.max(...ts), tMin = Math.min(...ts), iMax = ts.indexOf(tMax), iMin = ts.indexOf(tMin);
   const pops = per.map(q => q.pop);
   return '<div class="hours" tabindex="0" aria-label="' + X.name + ' 逐時預報，可左右捲動"><div class="hrow">' + per.map((q, i) =>
     '<div class="hc' + (tMax !== tMin && i === iMax ? " hot" : tMax !== tMin && i === iMin ? " cold" : "") +
     band(pops, i) + '" style="--k:' + Math.min(i, 8) + '">' +
-    '<span class="n">' + (i ? q.h + " 時" : "現在") + '</span>' + icon(q.code, isNight(q.h)) +
+    '<span class="n">' + (i || !today ? q.h + " 時" : "現在") + '</span>' + icon(q.code, isNight(q.h)) +
     '<span class="t">' + q.T + '°</span><span class="p' + (q.pop >= 40 ? " wet" : "") + '">' + q.pop + '<small>%</small></span></div>').join("") + '</div></div>';
+}
+/* the hours of one day, as far as the 3-hourly rain forecast reaches (CWA gives rain every 3 hours, so each figure is held for its 3 hours) */
+function dayHours(X, date) {
+  const p = X.c.p, end = p.length ? p[p.length - 1][0] + 3 * H : 0;
+  return X.c.h.filter(r => dayKey(r[0]) === date && r[0] < end).map(r => { const q = at(p, r[0]); return { t: r[0], h: hourAt(r[0]), T: r[1], pop: q[1], code: q[2], text: q[3], k: kind(q[2]) }; });
 }
 const halfStrip = d => '<div class="hours"><div class="hrow two">' + [[d[7], d[9], false, "白天"], [d[8], d[10], true, "晚上"]].filter(x => x[0]).map((x, i) =>
   '<div class="hc" style="--k:' + i + '"><span class="n">' + x[3] + '</span>' + icon(d[4], x[2]) + '<span class="t">' + x[0] + '</span>' + (x[1] >= 0 ? '<span class="p' + (x[1] >= 50 ? " wet" : "") + '">降雨 ' + fmt(x[1]) + '</span>' : "") + '</div>').join("") + '</div></div>';
@@ -849,8 +854,11 @@ function render(animate, dir) {
     fit = outfit([flo, fhi], !!B);
     skies = rows.map((d, i) => skyOf(ks[i], 12, d[12] > -90 ? d[12] : d[2]));
     zones = rows.map((d, i) => ({ level: wet(ks[i]) ? Math.max(.3, Math.min(d[3] / 100, 1)) : 0, thunder: ks[i] === "thunder" }));
-    $("strips").innerHTML = B ? lanes(list.map(X => X.name), ["白天", "晚上"], rows.map(d => [d[9], d[10]]), true, [false, true].map(n => icon((rows[1][3] > rows[0][3] ? rows[1] : rows[0])[4], n)), rows.map(d => [d[7] || d[5], d[8] || d[5]])) : halfStrip(dA);
-    $("hH").textContent = rows.some(d => d[3] >= 0) ? "降雨機率" : "天氣";
+    const dh = list.map((X, i) => dayHours(X, rows[i][0])), hourly = dh.every(a => a.length >= 3) && dh.every(a => a.length === dh[0].length);
+    if (hourly) $("strips").innerHTML = B ? lanes(list.map(X => X.name), dh[0].map(q => q.h + " 時"), dh.map(a => a.map(q => q.pop)), false,
+      dh[0].map(q => { const o = dh[1].find(x => x.t === q.t) || q, w = o.pop > q.pop ? o : q; return icon(w.code, isNight(q.h)); })) : hourStrip(A, dh[0], false);
+    else $("strips").innerHTML = B ? lanes(list.map(X => X.name), ["白天", "晚上"], rows.map(d => [d[9], d[10]]), true, [false, true].map(n => icon((rows[1][3] > rows[0][3] ? rows[1] : rows[0])[4], n)), rows.map(d => [d[7] || d[5], d[8] || d[5]])) : halfStrip(dA);
+    $("hH").textContent = hourly || rows.some(d => d[3] >= 0) ? "降雨機率" : "天氣";
   }
   // hide a line that only repeats the header (today, one place): max rain = current rain, one feels-like value = current feels-like
   if (isToday && !B) {
