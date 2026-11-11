@@ -148,7 +148,9 @@ button.hl { cursor: pointer; }
 .dp .temp { font-size: clamp(80px, 24vw, 104px); }
 .dp b { font-size: var(--t2); font-weight: var(--bold); letter-spacing: .04em; }
 .dp small { font-size: var(--t1); color: var(--muted); overflow-wrap: anywhere; line-height: 1.4; margin-top: var(--s2); }
-.dp small > span { white-space: nowrap; }   /* the drop and its figure wrap together, never in the middle of 未定 */
+.dp small > span { white-space: nowrap; }
+.lg .lc.wx { font-family: var(--font-body); font-size: var(--t1); font-weight: 400; color: var(--muted); text-align: center; line-height: 1.3; padding: 0 var(--s1); }
+.week .wx { font-size: var(--t1); color: var(--muted); text-align: right; line-height: 1.3; max-width: 9em; }   /* the drop and its figure wrap together, never in the middle of 未定 */
 .dtop .hl { margin-left: auto; align-self: flex-start; padding: var(--s3) 0 0; }   /* the same offset as one place, so the high and low do not move */
 /* two places on one clock: a lane each, shaded by the chance of rain */
 .lanes { display: flex; padding: var(--s3) var(--gutter) 0; margin: 0 calc(var(--gutter) * -1); overflow-x: auto; scrollbar-width: none; }
@@ -721,31 +723,36 @@ const UP = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10.500v-9M2.
 const hilo = (hi, lo, uv) => '<i class="hi" aria-hidden="true">' + UP + '</i><span class="hi" aria-label="最高 ' + hi + ' 度">' + hi + '°</span><i class="lo" aria-hidden="true">' + DN + '</i><span class="lo" aria-label="最低 ' + lo + ' 度">' + lo + '°</span>' +
   (uv >= 0 ? '<i aria-hidden="true"><small>UV</small></i><span aria-label="紫外線指數 ' + uv + '">' + uv + '<u>°</u></span>' : "");
 const extra = (label, v, unit) => '<i aria-hidden="true"><small>' + label + '</small></i><span aria-label="' + label + ' ' + v + unit + '">' + v + '<small>' + unit + '</small></span>';
-const rainTxt = v => '<span aria-label="降雨機率 ' + fmt(v) + '"><svg class="dr" viewBox="0 0 24 24" aria-hidden="true">' + glyph("drop") + '</svg>' + fmt(v) + '</span>';
+const rainTxt = v => v < 0 ? "" : '<span aria-label="降雨機率 ' + fmt(v) + '"><svg class="dr" viewBox="0 0 24 24" aria-hidden="true">' + glyph("drop") + '</svg>' + fmt(v) + '</span>';
 let hlOpen = false;
 const tier = p => p >= 70 ? 2 : p >= 40 ? 1 : 0;
 const band = (pops, i) => { const t = tier(pops[i]); return t ? " t" + t + (i > 0 && tier(pops[i - 1]) ? "" : " rs") + (i < pops.length - 1 && tier(pops[i + 1]) ? "" : " re") : ""; };
 /* lanes: one row of cells per place under a shared row of labels */
-const lanes = (names, head, rows, wide, ics) => {
+const lanes = (names, head, rows, wide, ics, texts) => {
   const above = false;   // names sit over their own row instead of in a column on the left
-  const cells = r => r.map((v, i) => '<span class="lc' + (v >= 0 ? band(r, i) : "") + '"><span>' + (v >= 0 ? v + '<small>%</small>' : "未定") + '</span></span>').join("");
+  const cells = (r, k) => r.map((v, i) => v < 0 && texts ? '<span class="lc wx"><span>' + (texts[k][i] || "") + '</span></span>' : '<span class="lc' + (v >= 0 ? band(r, i) : "") + '"><span>' + (v >= 0 ? v + '<small>%</small>' : "") + '</span></span>').join("");
   return '<div class="lanes' + (ics ? " wi" : "") + (above ? " above" : "") + '">' + (above ? "" : '<div class="ln"><span></span>' + (ics ? "<span></span>" : "") + names.map(n => '<span>' + n + '</span>').join("") + '</div>') +
     '<div class="lsc" tabindex="0" aria-label="生活圈降雨機率，可左右捲動"><div class="lg' + (wide ? " wide" : "") + '" style="--n:' + head.length + (above ? ";grid-template-rows:20px " + (ics ? "28px " : "") + "20px 40px 20px 40px" : "") + '">' +
     head.map(h => '<span class="lh">' + h + '</span>').join("") + (ics ? ics.map(x => '<span class="li">' + x + '</span>').join("") : "") +
-    rows.map((r, k) => (above ? '<span class="lcap">' + names[k] + '</span>' : "") + cells(r)).join("") + '</div></div></div>';
+    rows.map((r, k) => (above ? '<span class="lcap">' + names[k] + '</span>' : "") + cells(r, k)).join("") + '</div></div></div>';
 };
 const fmt = v => v >= 0 ? v + "%" : "未定";
-function hourStrip(X) {
-  const per = X.per, ts = per.map(q => q.T), tMax = Math.max(...ts), tMin = Math.min(...ts), iMax = ts.indexOf(tMax), iMin = ts.indexOf(tMin);
+function hourStrip(X, per = X.per, today = true) {
+  const ts = per.map(q => q.T), tMax = Math.max(...ts), tMin = Math.min(...ts), iMax = ts.indexOf(tMax), iMin = ts.indexOf(tMin);
   const pops = per.map(q => q.pop);
   return '<div class="hours" tabindex="0" aria-label="' + X.name + ' 逐時預報，可左右捲動"><div class="hrow">' + per.map((q, i) =>
     '<div class="hc' + (tMax !== tMin && i === iMax ? " hot" : tMax !== tMin && i === iMin ? " cold" : "") +
     band(pops, i) + '" style="--k:' + Math.min(i, 8) + '">' +
-    '<span class="n">' + (i ? q.h + " 時" : "現在") + '</span>' + icon(q.code, isNight(q.h)) +
+    '<span class="n">' + (i || !today ? q.h + " 時" : "現在") + '</span>' + icon(q.code, isNight(q.h)) +
     '<span class="t">' + q.T + '°</span><span class="p' + (q.pop >= 40 ? " wet" : "") + '">' + q.pop + '<small>%</small></span></div>').join("") + '</div></div>';
 }
+/* the hours of one day, as far as the 3-hourly rain forecast reaches (CWA gives rain every 3 hours, so each figure is held for its 3 hours) */
+function dayHours(X, date) {
+  const p = X.c.p, end = p.length ? p[p.length - 1][0] + 3 * H : 0;
+  return X.c.h.filter(r => dayKey(r[0]) === date && r[0] < end).map(r => { const q = at(p, r[0]); return { t: r[0], h: hourAt(r[0]), T: r[1], pop: q[1], code: q[2], text: q[3], k: kind(q[2]) }; });
+}
 const halfStrip = d => '<div class="hours"><div class="hrow two">' + [[d[7], d[9], false, "白天"], [d[8], d[10], true, "晚上"]].filter(x => x[0]).map((x, i) =>
-  '<div class="hc" style="--k:' + i + '"><span class="n">' + x[3] + '</span>' + icon(d[4], x[2]) + '<span class="t">' + x[0] + '</span><span class="p' + (x[1] >= 50 ? " wet" : "") + '">降雨 ' + fmt(x[1]) + '</span></div>').join("") + '</div></div>';
+  '<div class="hc" style="--k:' + i + '"><span class="n">' + x[3] + '</span>' + icon(d[4], x[2]) + '<span class="t">' + x[0] + '</span>' + (x[1] >= 0 ? '<span class="p' + (x[1] >= 50 ? " wet" : "") + '">降雨 ' + fmt(x[1]) + '</span>' : "") + '</div>').join("") + '</div></div>';
 const wet = k => k === "rain" || k === "thunder";
 /* the trip as one strip: each cell takes the wetter of the two places, and names it only when they differ */
 const tripCell = (label, pa, pb, names, icA, icB, text) => { const b = pb[0] > pa[0], differ = pa[0] !== pb[0] && (tier(pa[0]) !== tier(pb[0]) || Math.abs(pa[0] - pb[0]) >= 20);
@@ -806,7 +813,7 @@ function render(animate, dir) {
   const uvs = list.map((X, i) => uvOf(X, rows[i]));
   $("cols").innerHTML = B
     ? '<div class="dtop">' + list.map((X, i) => { const d = rows[i];
-        return '<button class="dp" type="button" data-view="' + i + '" aria-label="' + X.name + '，' + num(X, d) + ' 度，看這一地的細節"><b>' + X.name + '</b><span class="temp"><span data-to="' + num(X, d) + '">' + num(X, d) + '</span><sup>°</sup></span><small>' + (isToday ? X.p0[3] : d[5]) + " " + rainTxt(isToday ? X.p0[1] : d[3]) + '</small></button>'; })
+        return '<button class="dp" type="button" data-view="' + i + '" aria-label="' + X.name + '，' + num(X, d) + ' 度，看這一地的細節"><b>' + X.name + '</b><span class="temp"><span data-to="' + num(X, d) + '">' + num(X, d) + '</span><sup>°</sup></span><small>' + (isToday ? X.p0[3] : d[5]) + (isToday || d[3] >= 0 ? " " + rainTxt(isToday ? X.p0[1] : d[3]) : "") + '</small></button>'; })
         .join("") +
       '<p class="hl">' + hilo(Math.max(...list.map((X, i) => isToday ? X.hi : rows[i][2])), Math.min(...list.map((X, i) => isToday ? X.lo : rows[i][1])), Math.max(...uvs)) + '</p></div>'
     : '<div class="top"><p class="temp" id="temp" aria-label="' + (isToday ? "現在 " : "最高 ") + num(A, dA) + ' 度"><span id="tempN"></span><span class="side"><sup>°</sup><small>' + (isToday ? "體感 " + A.cur[2] + "°" : "最高溫") + '</small></span></p>' +
@@ -816,7 +823,7 @@ function render(animate, dir) {
   if (!B) roll($("tempN"), rkey(0), num(A, dA), animate);
   else document.querySelectorAll("#cols .dp .temp > span").forEach((el, i) => roll(el, rkey(i), +el.dataset.to, animate));
   document.title = (B ? A.name + " " + num(A, dA) + "° · " + B.name + " " + num(B, rows[1]) + "°" : A.name + " " + num(A, dA) + "°");
-  $("sub").innerHTML = (isToday ? A.p0[3] : dA[5]) + " · " + rainTxt(isToday ? A.p0[1] : dA[3]);
+  $("sub").innerHTML = (isToday ? A.p0[3] : dA[5]) + (isToday || dA[3] >= 0 ? " · " + rainTxt(isToday ? A.p0[1] : dA[3]) : "");
 
 
   // the two answers, decided across whatever is on screen
@@ -843,11 +850,15 @@ function render(animate, dir) {
     title = dayUmb(pop, ks.find(wet) || ks[0], rows.some(d => heavyTxt(d[5])));
     const wetDay = d => d[3] >= 30 || d[3] < 0 && wet(kind(d[4]));
     reason = B ? (wetDay(rows[0]) && wetDay(rows[1]) ? "生活圈都可能下" : wetDay(rows[0]) ? "只有" + A.name + "可能下" : wetDay(rows[1]) ? "只有" + B.name + "可能下" : "生活圈都不會下")
-      : dA[3] >= 0 ? "白天 " + fmt(dA[9]) + "，晚上 " + fmt(dA[10]) : "降雨機率還沒有預報";
+      : dA[3] >= 0 ? "白天 " + fmt(dA[9]) + "，晚上 " + fmt(dA[10]) : "依天氣預報";
     fit = outfit([flo, fhi], !!B);
     skies = rows.map((d, i) => skyOf(ks[i], 12, d[12] > -90 ? d[12] : d[2]));
     zones = rows.map((d, i) => ({ level: wet(ks[i]) ? Math.max(.3, Math.min(d[3] / 100, 1)) : 0, thunder: ks[i] === "thunder" }));
-    $("strips").innerHTML = B ? lanes(list.map(X => X.name), ["白天", "晚上"], rows.map(d => [d[9], d[10]]), true, [false, true].map(n => icon((rows[1][3] > rows[0][3] ? rows[1] : rows[0])[4], n))) : halfStrip(dA);
+    const dh = list.map((X, i) => dayHours(X, rows[i][0])), hourly = dh.every(a => a.length >= 3) && dh.every(a => a.length === dh[0].length);
+    if (hourly) $("strips").innerHTML = B ? lanes(list.map(X => X.name), dh[0].map(q => q.h + " 時"), dh.map(a => a.map(q => q.pop)), false,
+      dh[0].map(q => { const o = dh[1].find(x => x.t === q.t) || q, w = o.pop > q.pop ? o : q; return icon(w.code, isNight(q.h)); })) : hourStrip(A, dh[0], false);
+    else $("strips").innerHTML = B ? lanes(list.map(X => X.name), ["白天", "晚上"], rows.map(d => [d[9], d[10]]), true, [false, true].map(n => icon((rows[1][3] > rows[0][3] ? rows[1] : rows[0])[4], n)), rows.map(d => [d[7] || d[5], d[8] || d[5]])) : halfStrip(dA);
+    $("hH").textContent = hourly || rows.some(d => d[3] >= 0) ? "降雨機率" : "天氣";
   }
   // hide a line that only repeats the header (today, one place): max rain = current rain, one feels-like value = current feels-like
   if (isToday && !B) {
@@ -855,6 +866,7 @@ function render(animate, dir) {
     if (!main && !r0.thunder && r0.mx === A.p0[1]) reason = "";
     if (fit.hi === Math.min(...A.W.map(q => q.F)) && fit.hi === A.cur[2]) fit.m = "";
   }
+  if (isToday) $("hH").textContent = "降雨機率";
   $("umbV").textContent = title; $("umbM").textContent = main; $("umbR").innerHTML = reason; $("umbR").hidden = !reason;
   $("fitV").textContent = fit.v; $("fitM").textContent = fit.m; $("fitM").hidden = !fit.m; $("fitR").textContent = fit.r;
   Object.assign(OWN, { umb_open: UMB_OPEN, umb_shut: UMB_SHUT, tee: TEE, long: LONG, coat: COAT });
@@ -884,17 +896,17 @@ function render(animate, dir) {
   // the week page: an overview, and the way to pick another day
   const dayLabel = (d, i) => i === 0 ? (d[6] ? "今天" : "今晚") : "週" + WD[new Date(d[0] + "T12:00:00+08:00").getUTCDay()];
   const temps = d => '<span class="tt"><b class="lo">' + d[1] + '°</b><span> / </span><b class="hi">' + d[2] + '°</b></span>';
-  const popS = v => '<span class="wb"><span class="bar"><i style="--w:' + Math.max(v, 0) + '%"></i></span><span class="p' + (v >= 70 ? " wet" : "") + '">' + fmt(v) + '</span></span>';
+  const popS = (v, text) => v < 0 ? '<span class="wx">' + (text || "") + '</span>' : '<span class="wb"><span class="bar"><i style="--w:' + Math.max(v, 0) + '%"></i></span><span class="p' + (v >= 70 ? " wet" : "") + '">' + fmt(v) + '</span></span>';
   $("whead").innerHTML = "";
   // two places: one line per day for the trip as a whole (widest range, wetter side); a second line only when the two differ
   $("week").innerHTML = A.days.map((d, i) => {
     const e = B && (B.days.find(x => x[0] === d[0]) || d), lab = dayLabel(d, i);
     const open = '<li><button class="wr' + (B ? " sum" : "") + '" type="button" data-i="' + i + '" aria-current="' + (i === day) + '" aria-label="' + lab + '，' + d[5] + '，' + d[1] + ' 到 ' + d[2] + ' 度">';
-    if (!B) return open + '<span>' + lab + '</span>' + icon(d[4], i === 0 && !d[6]) + temps(d) + popS(d[3]) + '</button></li>';
+    if (!B) return open + '<span>' + lab + '</span>' + icon(d[4], i === 0 && !d[6]) + temps(d) + popS(d[3], d[5]) + '</button></li>';
     const w = e[3] > d[3] ? e : d, lo = Math.min(d[1], e[1]), hi = Math.max(d[2], e[2]);
     const differ = d[3] !== e[3] && (tier(d[3]) !== tier(e[3]) || Math.abs(d[3] - e[3]) >= 20);
-    return open + '<span>' + lab + '</span>' + icon(w[4], i === 0 && !w[6]) + temps([0, lo, hi]) + popS(Math.max(d[3], e[3])) +
-      (differ ? '<span class="diff"><span>' + A.name + ' ' + rainTxt(d[3]) + '</span><span>' + B.name + ' ' + rainTxt(e[3]) + '</span></span>' : "") + '</button></li>';
+    return open + '<span>' + lab + '</span>' + icon(w[4], i === 0 && !w[6]) + temps([0, lo, hi]) + popS(Math.max(d[3], e[3]), w[5]) +
+      (differ && d[3] >= 0 && e[3] >= 0 ? '<span class="diff"><span>' + A.name + ' ' + rainTxt(d[3]) + '</span><span>' + B.name + ' ' + rainTxt(e[3]) + '</span></span>' : "") + '</button></li>';
   }).join("");
 
   root.dataset.page = state.page;
