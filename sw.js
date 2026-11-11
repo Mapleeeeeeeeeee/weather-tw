@@ -1,12 +1,12 @@
 // Service Worker: precache the app shell, then stale-while-revalidate.
 // Bump VERSION when the shell file list changes.
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `weather-tw-${VERSION}`;
 const SHELL = [
   "./", "index.html", "manifest.webmanifest",
   "favicon.svg", "favicon-16.png", "favicon-32.png", "apple-touch-icon.png",
   "icon-192.png", "icon-512.png", "icon-maskable-512.png",
-  "fonts/genyomin-r.woff2", "fonts/genyomin-sb.woff2",
+  "fonts/genyomin-l-num.woff2", "fonts/genyomin-r.woff2", "fonts/genyomin-sb.woff2",
 ];
 const CACHEABLE_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
