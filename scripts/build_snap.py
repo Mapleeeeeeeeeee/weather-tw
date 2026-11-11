@@ -18,6 +18,7 @@ T is one shared string table, so every text is stored once.
 """
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -32,6 +33,7 @@ API = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/{}?Authorization={}&for
 
 # 22 counties: (3-day id, 1-week id); 001/003 Yilan, 005/007 Taoyuan ... 085/087 Kinmen
 COUNTY_IDS = [("F-D0047-%03d" % n, "F-D0047-%03d" % (n + 2)) for n in range(1, 87, 4)]
+LIVE_URL = "https://weather-tw.pages.dev/"
 HOURLY_ROWS = 48  # how many hourly rows to keep per town
 
 
@@ -182,6 +184,32 @@ def build_town(t3, t7, S):
     return {"s": s, "h": h, "p": p, "w": w, "d": d}
 
 
+def fingerprint(dataset):
+    """Short hash of one dataset's content. CWA gives no publish time, so a changed hash is how we notice a new release."""
+    body = json.dumps(dataset["records"], sort_keys=True, ensure_ascii=False)
+    return hashlib.sha1(body.encode("utf-8")).hexdigest()[:12]
+
+
+def live_fingerprint(url):
+    """The fingerprint inside the deployed page, or None when it has none yet."""
+    req = urllib.request.Request("%s?_=%d" % (url, int(dt.datetime.now().timestamp())), headers={"User-Agent": "WeatherTW/1.0"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        html = r.read().decode("utf-8")
+    m = re.search(r'const SNAP = \{"at":"[^"]*","k":"([0-9a-f]+)"', html)
+    return m.group(1) if m else None
+
+
+def check(key):
+    """Probe one dataset against the live site. Prints changed=true/false (also to $GITHUB_OUTPUT)."""
+    new = fingerprint(get_json(COUNTY_IDS[0][0], key))
+    old = live_fingerprint(LIVE_URL)
+    changed = new != old
+    print("probe %s, live %s -> changed=%s" % (new, old, str(changed).lower()))
+    if os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("changed=%s\n" % str(changed).lower())
+
+
 def build(pairs, partial=False):
     S = Strings()
     counties = {}
@@ -195,7 +223,7 @@ def build(pairs, partial=False):
                 raise RuntimeError("%s %s missing in 1-week data" % (c3["LocationsName"], name))
             out[name] = build_town(t3, towns7[name], S)
         counties[c3["LocationsName"]] = out
-    return {"at": dt.datetime.now(TZ).strftime("%m/%d %H:%M"), "t": S.items, "c": counties}
+    return {"at": dt.datetime.now(TZ).strftime("%m/%d %H:%M"), "k": fingerprint(pairs[0][0]), "t": S.items, "c": counties}
 
 
 def validate(snap, old, partial):
@@ -229,7 +257,12 @@ def main():
     ap.add_argument("--src-dir", help="use cached F-D0047-xxx.json files instead of the API")
     ap.add_argument("--partial", action="store_true", help="allow fewer than 22 counties (testing)")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--check", action="store_true", help="only probe whether CWA has new data compared with the live site")
     a = ap.parse_args()
+    if a.check:
+        if not os.environ.get("CWA_API_KEY"):
+            sys.exit("CWA_API_KEY is not set")
+        return check(os.environ["CWA_API_KEY"])
 
     pairs = []
     key = os.environ.get("CWA_API_KEY", "")
