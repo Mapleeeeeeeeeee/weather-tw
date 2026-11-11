@@ -313,6 +313,8 @@ dialog.closing::backdrop { animation: fadeout .2s ease-in forwards; }
 
 /* scenario preview */
 .tw-btn { position: fixed; right: var(--gutter); bottom: calc(var(--s35) + env(safe-area-inset-bottom, 0px)); z-index: 5; display: inline-flex; align-items: center; gap: var(--s2); height: 40px; padding: 0 var(--s3); border-radius: 20px; background: var(--ink); color: var(--paper); font-size: var(--t1); letter-spacing: .04em; transition: transform .15s var(--ease), opacity .2s; }
+.asof { margin: var(--s4, 24px) 0 var(--s6, 96px); font-size: var(--t1); color: var(--muted); letter-spacing: .06em; text-align: center; }
+.asof b { font-weight: 400; color: var(--now, inherit); }
 .tw-btn:active { transform: scale(.95); }
 .tw-btn[hidden], .tw[hidden] { display: none !important; }
 .tw-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
@@ -385,6 +387,7 @@ dialog, .tw { color: var(--ink); }
     <ul class="week" id="week"></ul>
   </section>
   </div>
+  <p class="asof" id="asof"></p>
 </main>
 
 <nav class="pages" id="pages" aria-label="頁面">
@@ -925,6 +928,16 @@ function buildTweaks() {
       '<button class="chip" type="button" data-v="' + (v || "") + '" aria-pressed="' + (state.tw[k] === v) + '">' + label + '</button>').join("");
   });
 }
+/* when the data was made (SNAP.at is Taipei time "MM/DD HH:MM"); say so plainly when it has gone stale */
+function showAsOf() {
+  const m = /^(\d+)\/(\d+) (\d+):(\d+)$/.exec(SNAP.at || ""), el = $("asof");
+  if (!m) { el.hidden = true; return; }
+  const n = new Date(), pad = x => String(x).padStart(2, "0");
+  let t = Date.parse(n.getFullYear() + "-" + pad(m[1]) + "-" + pad(m[2]) + "T" + pad(m[3]) + ":" + m[4] + ":00+08:00");
+  if (t > Date.now() + 36e5) t = Date.parse((n.getFullYear() - 1) + "-" + pad(m[1]) + "-" + pad(m[2]) + "T" + pad(m[3]) + ":" + m[4] + ":00+08:00");
+  const age = (Date.now() - t) / H;
+  el.innerHTML = "資料時間 " + SNAP.at + " · 中央氣象署" + (age > 12 ? " · <b>已超過 " + Math.floor(age) + " 小時沒更新</b>" : "");
+}
 function setTweakOpen(open) {
   document.body.classList.toggle("tw-open", open);
   $("twBtn").setAttribute("aria-expanded", open);
@@ -940,6 +953,7 @@ function boot() {
   if (location.hash === "#week") state.page = "week";
   // scenario preview is a design tool: only shown with ?tweak in the URL
   if (!new URLSearchParams(location.search).has("tweak")) { $("twBtn").hidden = true; $("tw").hidden = true; }
+  showAsOf();
   buildTweaks();
   render(false);
 
