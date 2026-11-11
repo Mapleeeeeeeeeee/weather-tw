@@ -10,7 +10,7 @@
 
 ## 特色功能
 
-1. **秒開體驗（零後端延遲）**：內建預先處理好的全臺鄉鎮天氣快照（SNAP），離線或弱網環境也能瞬間載入。
+1. **秒開體驗（零後端延遲）**：內建預先處理好的全臺鄉鎮天氣快照（SNAP），開啟時不需要再向氣象署查詢，弱網環境也能快速載入。
 2. **直覺生活指標**：以白話自然語言提示「帶傘建議」、「體感溫度」、「舒適度與穿搭」及高低溫差。
 3. **逐時與一週趨勢**：未來 24 小時逐時降雨機率、氣溫曲線，以及未來一週天氣走勢。
 4. **全臺 368 鄉鎮切換**：快速搜尋與常用地區雙生活圈記憶（儲存於 LocalStorage）。
@@ -65,7 +65,7 @@ CWA_API_KEY="CWA-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 weather-tw/
 ├── index.html              # 主程式（含樣式、全臺 368 鄉鎮 SNAP 資料與前端互動）
 ├── manifest.webmanifest    # PWA Web App Manifest
-├── sw.js                   # Service Worker（離線快取）
+├── sw.js                   # 只用來清除舊裝置上已安裝的離線快取後自我移除（頁面已不再註冊 Service Worker）
 ├── favicon.svg             # SVG Favicon
 ├── favicon-16.png          # 16x16 PNG Favicon
 ├── favicon-32.png          # 32x32 PNG Favicon
