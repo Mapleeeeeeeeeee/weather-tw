@@ -65,6 +65,7 @@ CWA_API_KEY="CWA-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 weather-tw/
 ├── index.html              # 主程式（含樣式、全臺 368 鄉鎮 SNAP 資料與前端互動）
 ├── manifest.webmanifest    # PWA Web App Manifest
+├── sw.js                   # Service Worker（離線快取）
 ├── favicon.svg             # SVG Favicon
 ├── favicon-16.png          # 16x16 PNG Favicon
 ├── favicon-32.png          # 32x32 PNG Favicon
