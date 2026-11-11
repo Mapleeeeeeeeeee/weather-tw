@@ -761,8 +761,18 @@ const trip = (cols, cls) => { const pops = cols.map(c => c.pop);
   return '<div class="hours"><div class="hrow ' + cls + '">' + cols.map((c, i) => '<div class="hc' + band(pops, i) + '"><span class="n">' + c.label + '</span>' + c.icon + (c.main ? '<span class="t">' + c.main + '</span>' : "") +
     '<span class="p">' + (cls === "two" ? "降雨 " : "") + fmt(c.pop) + '</span><span class="note">' + c.note + '</span></div>').join("") + '</div></div>'; };
 
+/* the screen is worked out at one moment; keep it in step with the clock
+   back in view or the hour has turned: work it out again; away for over 10 minutes: load the page again for newer data and a fresh "today" */
+const loadedAt = Date.now();
+let shownAt = loadedAt;
+function refresh() {
+  if (document.hidden) return;
+  if (Date.now() - loadedAt > 10 * 60e3) { location.reload(); return; }
+  if (Math.floor(Date.now() / H) !== Math.floor(shownAt / H)) { showAsOf(); render(false); }
+}
 function render(animate, dir) {
   const now = Date.now(), tw = state.tw;
+  shownAt = now;
   // hand-drawn parts (falling drops, the bolt, any missing icon) take the weight of the chosen set
   document.documentElement.style.setProperty("--sw", tw.sw || "1.35");
   document.documentElement.style.setProperty("--osw", tw.sw || "1.35");
@@ -1059,6 +1069,9 @@ function boot() {
     }, { passive: true });
   }
   document.addEventListener("keydown", e => { if (sheet.open || e.target.closest("input, .hours")) return; if (e.key === "ArrowRight") flip(1); else if (e.key === "ArrowLeft") flip(-1); });
+  document.addEventListener("visibilitychange", refresh);
+  window.addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
+  setInterval(refresh, 60e3);
   let rz = 0;
   window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => render(false), 200); });
   sheet.addEventListener("cancel", e => { e.preventDefault(); closeSheet(); });
