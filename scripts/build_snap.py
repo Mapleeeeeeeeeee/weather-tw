@@ -36,18 +36,19 @@ API = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/{}?Authorization={}&for
 # 22 counties: (3-day id, 1-week id); 001/003 Yilan, 005/007 Taoyuan ... 085/087 Kinmen
 COUNTY_IDS = [("F-D0047-%03d" % n, "F-D0047-%03d" % (n + 2)) for n in range(1, 87, 4)]
 LIVE_URL = "https://weather-tw.pages.dev/"
-WORKERS = 4        # datasets fetched at the same time; kept low to be gentle with CWA
+BATCH = 5          # datasets per request (CWA maximum)
+WORKERS = 3        # requests in flight at once; kept low to be gentle with CWA
 HOURLY_ROWS = 96  # how many hourly rows to keep per town
 
 
-def get_json(dataset, key):
+def get_json(dataset, key, extra=""):
     ctx = ssl.create_default_context()
     try:
         import certifi
         ctx = ssl.create_default_context(cafile=certifi.where())
     except ImportError:
         pass
-    req = urllib.request.Request(API.format(dataset, key), headers={"User-Agent": "WeatherTW/1.0"})
+    req = urllib.request.Request(API.format(dataset, key), headers={"User-Agent": "WeatherTW/1.0"}) if not extra else urllib.request.Request(API.format(dataset, key) + extra, headers={"User-Agent": "WeatherTW/1.0"})
     last = None
     for attempt in range(3):
         if attempt:
@@ -61,6 +62,16 @@ def get_json(dataset, key):
         except Exception as e:  # noqa: BLE001 - retry any network hiccup
             last = e
     raise RuntimeError("fetch %s failed: %s" % (dataset, str(last).replace(key, "***")))
+
+
+def get_batch(ids, key):
+    """Several county datasets in one request via F-D0047-093 (CWA allows at most 5, and silently drops the rest)."""
+    d = get_json("F-D0047-093", key, "&locationId=" + ",".join(ids))
+    out = {"F-" + b["Dataid"]: {"records": {"Locations": [b]}} for b in d["records"]["Locations"]}
+    missing = [i for i in ids if i not in out]
+    if missing:
+        raise RuntimeError("CWA did not return %s" % ", ".join(missing))
+    return out
 
 
 def elements(town):
@@ -282,17 +293,21 @@ def main():
                 sys.exit("CWA_API_KEY is not set")
             todo.append((d3, d7))
     if todo:
-        def timed(i):
+        ids = [i for pair in todo for i in pair]
+        batches = [ids[k:k + BATCH] for k in range(0, len(ids), BATCH)]
+
+        def timed(b):
             t0 = time.time()
-            d = get_json(i, key)
-            print("fetched %s in %.1fs" % (i, time.time() - t0), flush=True)
+            d = get_batch(b, key)
+            print("fetched %s..%s (%d datasets) in %.1fs" % (b[0], b[-1], len(b), time.time() - t0), flush=True)
             return d
         t0 = time.time()
-        ids = [i for pair in todo for i in pair]
         with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-            got = list(ex.map(timed, ids))   # keeps the order of ids
-        pairs = [(got[k], got[k + 1]) for k in range(0, len(got), 2)]
-        print("fetched %d datasets in %.0fs" % (len(ids), time.time() - t0), flush=True)
+            got = {}
+            for r in ex.map(timed, batches):
+                got.update(r)
+        pairs = [(got[a], got[b]) for a, b in todo]
+        print("fetched %d datasets in %d requests, %.0fs" % (len(ids), len(batches), time.time() - t0), flush=True)
     if not pairs:
         sys.exit("no data")
 
