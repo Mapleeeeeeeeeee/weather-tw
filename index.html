@@ -144,11 +144,11 @@ button.hl { cursor: pointer; }
 .now.duo .meta { display: none; }
 /* two places as one trip: from the first temperature to the second */
 .dtop { display: flex; align-items: flex-start; gap: var(--s35); min-height: max(calc(var(--t5) * .86 + 44px), 168px); }   /* the same height as the single-place block, so nothing below moves when switching */
-.dp { display: grid; justify-items: start; min-width: 0; }
+.dp { display: grid; justify-items: start; min-width: 0; flex: 0 1 auto; }
 .dp .temp { font-size: clamp(80px, 24vw, 104px); }
 .dp b { font-size: var(--t2); font-weight: var(--bold); letter-spacing: .04em; }
-.dp small { font-size: var(--t1); color: var(--muted); white-space: nowrap; line-height: 1.4; margin-top: var(--s2); }
-.dtop .hl { margin-left: auto; align-self: flex-start; padding: 30px 0 0; }
+.dp small { font-size: var(--t1); color: var(--muted); overflow-wrap: anywhere; line-height: 1.4; margin-top: var(--s2); }
+.dtop .hl { margin-left: auto; align-self: flex-start; padding: var(--s3) 0 0; }   /* the same offset as one place, so the high and low do not move */
 /* two places on one clock: a lane each, shaded by the chance of rain */
 .lanes { display: flex; padding: var(--s3) var(--gutter) 0; margin: 0 calc(var(--gutter) * -1); overflow-x: auto; scrollbar-width: none; }
 .lanes::-webkit-scrollbar { display: none; }   /* the hour labels start where the single-place strip starts them */
