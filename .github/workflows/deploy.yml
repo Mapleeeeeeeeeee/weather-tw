@@ -5,9 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # CWA republishes the town forecasts every 3 hours (Taipei 02, 05, 08 ... 23 = UTC 18, 21, 0 ... 15).
-    # Probe at :02 :07 :12 :17 :27 :42 of each of those hours; a run only does real work when the data changed.
-    - cron: "2,7,12,17,27,42 18,21,0,3,6,9,12,15 * * *"
+    # Probe CWA every 15 minutes, all day, at minutes that avoid the top of the hour (GitHub's busiest moment, when scheduled runs can be delayed or dropped).
+    # A probe only costs one request; the real work (fetch, build, deploy) happens only when the data changed.
+    - cron: "7,22,37,52 * * * *"
 
 concurrency:
   group: deploy
