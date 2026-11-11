@@ -148,6 +148,7 @@ button.hl { cursor: pointer; }
 .dp .temp { font-size: clamp(80px, 24vw, 104px); }
 .dp b { font-size: var(--t2); font-weight: var(--bold); letter-spacing: .04em; }
 .dp small { font-size: var(--t1); color: var(--muted); overflow-wrap: anywhere; line-height: 1.4; margin-top: var(--s2); }
+.dp small > span { white-space: nowrap; }   /* the drop and its figure wrap together, never in the middle of 未定 */
 .dtop .hl { margin-left: auto; align-self: flex-start; padding: var(--s3) 0 0; }   /* the same offset as one place, so the high and low do not move */
 /* two places on one clock: a lane each, shaded by the chance of rain */
 .lanes { display: flex; padding: var(--s3) var(--gutter) 0; margin: 0 calc(var(--gutter) * -1); overflow-x: auto; scrollbar-width: none; }
