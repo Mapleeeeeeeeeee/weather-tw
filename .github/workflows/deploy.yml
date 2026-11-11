@@ -5,8 +5,8 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # 05:30, 11:30, 17:30, 23:30 Taipei time (UTC+8), after CWA publishes the town forecasts
-    - cron: "30 21,3,9,15 * * *"
+    # CWA republishes the town forecasts every 3 hours (Taipei 02, 05, 08 ... 23); run 30 minutes after each
+    - cron: "30 18,21,0,3,6,9,12,15 * * *"
 
 concurrency:
   group: deploy
