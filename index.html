@@ -314,6 +314,7 @@ dialog.closing::backdrop { animation: fadeout .2s ease-in forwards; }
 /* scenario preview */
 .tw-btn { position: fixed; right: var(--gutter); bottom: calc(var(--s35) + env(safe-area-inset-bottom, 0px)); z-index: 5; display: inline-flex; align-items: center; gap: var(--s2); height: 40px; padding: 0 var(--s3); border-radius: 20px; background: var(--ink); color: var(--paper); font-size: var(--t1); letter-spacing: .04em; transition: transform .15s var(--ease), opacity .2s; }
 .tw-btn:active { transform: scale(.95); }
+.tw-btn[hidden], .tw[hidden] { display: none !important; }
 .tw-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
 .tw-btn i { width: 6px; height: 6px; border-radius: 50%; background: var(--now); display: none; }
 :root[data-preview] .tw-btn i { display: block; }
@@ -932,6 +933,8 @@ function boot() {
   } catch (e) {}
   if (!state.pair.every(valid)) { const c0 = Object.keys(SNAP.c)[0], ds = Object.keys(SNAP.c[c0]); state.pair = [[c0, ds[0]], [c0, ds[1] || ds[0]]]; }
   if (location.hash === "#week") state.page = "week";
+  // scenario preview is a design tool: only shown with ?tweak in the URL
+  if (!new URLSearchParams(location.search).has("tweak")) { $("twBtn").hidden = true; $("tw").hidden = true; }
   buildTweaks();
   render(false);
 
