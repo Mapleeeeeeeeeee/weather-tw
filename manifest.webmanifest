@@ -1,0 +1,14 @@
+{
+  "name": "台灣天氣",
+  "short_name": "台灣天氣",
+  "description": "極簡、優雅的台灣 368 鄉鎮天氣 App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2E456E",
+  "theme_color": "#2E456E",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
