@@ -822,8 +822,13 @@ function render(animate, dir) {
     zones = rows.map((d, i) => ({ level: wet(ks[i]) ? Math.max(.3, Math.min(d[3] / 100, 1)) : 0, thunder: ks[i] === "thunder" }));
     $("strips").innerHTML = B ? lanes(list.map(X => X.name), ["白天", "晚上"], rows.map(d => [d[9], d[10]]), true, [false, true].map(n => icon((rows[1][3] > rows[0][3] ? rows[1] : rows[0])[4], n))) : halfStrip(dA);
   }
-  $("umbV").textContent = title; $("umbM").textContent = main; $("umbR").innerHTML = reason;
-  $("fitV").textContent = fit.v; $("fitM").textContent = fit.m; $("fitR").textContent = fit.r;
+  // hide a line that only repeats the header number (today, one place): max rain = current rain, feels-like range = current feels-like
+  if (isToday && !B) {
+    if (!main && !list[0].W.some(q => q.k === "thunder" && q.pop >= 30) && Math.max(...A.W.map(q => q.pop)) === A.p0[1]) reason = "";
+    if (fit.hi === Math.min(...[].concat(A.W.map(q => q.F))) && fit.hi === A.cur[2]) fit.m = "";
+  }
+  $("umbV").textContent = title; $("umbM").textContent = main; $("umbR").innerHTML = reason; $("umbR").hidden = !reason;
+  $("fitV").textContent = fit.v; $("fitM").textContent = fit.m; $("fitM").hidden = !fit.m; $("fitR").textContent = fit.r;
   Object.assign(OWN, { umb_open: UMB_OPEN, umb_shut: UMB_SHUT, tee: TEE, long: LONG, coat: COAT });
   $("umbI").innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + glyph(title === "不用帶傘" ? "umb_shut" : "umb_open") + '</svg>';
   $("fitI").innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + glyph(fit.icon) + '</svg>';
