@@ -24,7 +24,9 @@ import os
 import re
 import ssl
 import sys
+import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX = os.path.join(ROOT, "index.html")
@@ -34,6 +36,7 @@ API = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/{}?Authorization={}&for
 # 22 counties: (3-day id, 1-week id); 001/003 Yilan, 005/007 Taoyuan ... 085/087 Kinmen
 COUNTY_IDS = [("F-D0047-%03d" % n, "F-D0047-%03d" % (n + 2)) for n in range(1, 87, 4)]
 LIVE_URL = "https://weather-tw.pages.dev/"
+WORKERS = 4        # datasets fetched at the same time; kept low to be gentle with CWA
 HOURLY_ROWS = 96  # how many hourly rows to keep per town
 
 
@@ -46,7 +49,9 @@ def get_json(dataset, key):
         pass
     req = urllib.request.Request(API.format(dataset, key), headers={"User-Agent": "WeatherTW/1.0"})
     last = None
-    for _ in range(3):
+    for attempt in range(3):
+        if attempt:
+            time.sleep(2 * attempt)
         try:
             with urllib.request.urlopen(req, context=ctx, timeout=60) as r:
                 d = json.loads(r.read().decode("utf-8"))
@@ -264,7 +269,7 @@ def main():
             sys.exit("CWA_API_KEY is not set")
         return check(os.environ["CWA_API_KEY"])
 
-    pairs = []
+    pairs, todo = [], []
     key = os.environ.get("CWA_API_KEY", "")
     for d3, d7 in COUNTY_IDS:
         if a.src_dir:
@@ -275,7 +280,19 @@ def main():
         else:
             if not key:
                 sys.exit("CWA_API_KEY is not set")
-            pairs.append((get_json(d3, key), get_json(d7, key)))
+            todo.append((d3, d7))
+    if todo:
+        def timed(i):
+            t0 = time.time()
+            d = get_json(i, key)
+            print("fetched %s in %.1fs" % (i, time.time() - t0), flush=True)
+            return d
+        t0 = time.time()
+        ids = [i for pair in todo for i in pair]
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            got = list(ex.map(timed, ids))   # keeps the order of ids
+        pairs = [(got[k], got[k + 1]) for k in range(0, len(got), 2)]
+        print("fetched %d datasets in %.0fs" % (len(ids), time.time() - t0), flush=True)
     if not pairs:
         sys.exit("no data")
 
