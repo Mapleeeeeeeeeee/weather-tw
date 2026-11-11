@@ -75,7 +75,8 @@ weather-tw/
 ├── apple-touch-icon.png    # iOS 桌面圖示
 ├── fonts/                  # 源樣明體（GenYoMin）Web 字型
 ├── scripts/
-│   └── fetch_cwa.py        # CWA API 抓取與更新輔助腳本
+│   ├── fetch_cwa.py        # CWA API 連線測試
+│   └── build_snap.py       # 抓取 CWA 全臺 368 鄉鎮預報並重建 index.html 內的 SNAP
 └── README.md
 ```
 

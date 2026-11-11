@@ -4,19 +4,36 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # CWA republishes the town forecasts every 3 hours (Taipei 02, 05, 08 ... 23 = UTC 18, 21, 0 ... 15).
+    # Probe at :02 :07 :12 :17 :27 :42 of each of those hours; a run only does real work when the data changed.
+    - cron: "2,7,12,17,27,42 18,21,0,3,6,9,12,15 * * *"
 
 concurrency:
   group: deploy
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
     steps:
       - uses: actions/checkout@v5
+      # Scheduled runs first ask CWA (one dataset) whether anything is new compared with the live site.
+      - name: Probe CWA for new data
+        id: probe
+        if: github.event_name == 'schedule'
+        run: python3 scripts/build_snap.py --check
+      # Fresh CWA data goes straight into the deployed index.html; it is not committed back.
+      # The build refuses to write when the data looks wrong, which fails this job and keeps the live site as is.
+      - name: Build weather snapshot
+        if: github.event_name != 'schedule' || steps.probe.outputs.changed == 'true'
+        run: python3 scripts/build_snap.py
       - name: Deploy
+        if: github.event_name != 'schedule' || steps.probe.outputs.changed == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
