@@ -29,9 +29,24 @@
 | **F-C0032-001** | 一般天氣預報（今明 36 小時天氣預報） | 22 縣市概況 | **每天發布 3 次**<br>（05:00、11:00、17:00） |
 | **O-A0001-001 / O-A0003-001** | 即時氣象觀測資料（局屬站 / 自動站） | 各地面測站 | **每 10 分鐘 ~ 1 小時更新一次** |
 
-> [!TIP]
-> **建議更新排程**：
-> 若設定自動排程抓取最新預報，最建議的頻率是 **每 3 小時**（或每天 4 次重點更新：`05:30`、`11:30`、`17:30`、`23:30`）。這樣能完美對齊 CWA F-D0047 的預報產出時間，既保持最新，又避免頻繁呼叫遭 Rate Limit。
+## 自動更新機制
+
+資料更新由三個部分組成：
+
+```
+Cloudflare Worker（cron，每 30 分鐘）
+   └─ workflow_dispatch(probe=true) ─▶ GitHub Actions（deploy.yml）
+        ├─ Probe：向 CWA 要一份資料集，和線上網站的 fingerprint 比對
+        ├─ 沒變 ─▶ 結束（約 20 秒，不 build、不部署）
+        └─ 有變 ─▶ build_snap.py 重建 SNAP ─▶ wrangler pages deploy
+```
+
+- **為什麼由 Cloudflare Worker 觸發**：GitHub Actions 的 `schedule` 會被節流、常常直接丟掉（實測約 33 小時只跑了 6 次，預期約 130 次），不適合當時鐘。Cloudflare Cron Trigger 會準時執行，所以由 `worker/` 這個 Worker 每 30 分鐘呼叫 GitHub 的 `workflow_dispatch`，GitHub 端只負責 probe、build、deploy。
+- **更新頻率**：Worker 每 30 分鐘檢查一次，但只有 CWA 真的發布新預報時才會 build 與部署。CWA 約每 3 小時發布一次，所以**網站約每 3 小時更新一次，在 CWA 發布後最多 30 分鐘內上線**。
+- **備援**：`deploy.yml` 仍保留每小時一次的 `schedule`，但它只是保險，不依賴它。
+- **push 到 `main`**：一律重新抓取資料並部署，不經過 probe。
+- **為什麼不用 Pages Deploy Hook**：`weather-tw` 是 direct upload 的 Pages 專案，沒有連接 Git，無法建立 Deploy Hook，所以 build 留在 GitHub Actions。
+- **部分鄉鎮缺資料**：CWA 偶爾會讓少數山區鄉鎮缺 3 小時降雨/風速。build 會改用每日預報補降雨、風速顯示「–」，不會因此整份拒絕更新。只有大面積異常（縣市數不足、鄉鎮數減少等）才會拒絕寫入並保留線上舊資料。
 
 ---
 
@@ -46,13 +61,24 @@ CWA_API_KEY="CWA-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 ```
 
 ### 2. GitHub Secrets（自動更新排程）
-若使用 GitHub Actions 自動更新天氣資料：
+GitHub Actions 的 build 與部署需要：
 1. 進入 Repository Settings -> Secrets and variables -> Actions
-2. 新增 Repository Secret：
-   - Name: `CWA_API_KEY`
-   - Value: `你的授權碼`
+2. 新增 Repository Secrets：
+   - `CWA_API_KEY`：你的 CWA 授權碼
+   - `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`：部署 Pages 用
 
-### 3. Cloudflare Pages 部署環境變數
+### 3. Cloudflare Worker（準時觸發）
+`worker/` 內的 Worker 負責每 30 分鐘叫醒 GitHub Actions：
+1. 在 GitHub 建立 fine-grained personal access token：只選這個 repo，權限 **Actions: Read and write**。
+2. 部署 Worker 並設定 secret：
+   ```bash
+   cd worker
+   npx wrangler deploy
+   npx wrangler secret put GITHUB_TOKEN
+   ```
+3. 排程寫在 `worker/wrangler.toml` 的 `crons`。token 到期後 Worker 會停止觸發，請記得更新。
+
+### 4. Cloudflare Pages 部署環境變數
 在 Cloudflare Dashboard：
 1. 前往 **Workers & Pages** -> **weather-tw** -> **Settings** -> **Environment variables**
 2. 新增 `CWA_API_KEY`。
@@ -74,6 +100,9 @@ weather-tw/
 ├── icon-maskable-512.png   # 512x512 PWA Maskable Icon
 ├── apple-touch-icon.png    # iOS 桌面圖示
 ├── fonts/                  # 源樣明體（GenYoMin）Web 字型
+├── worker/
+│   ├── wrangler.toml       # Cloudflare Worker（cron 每 30 分鐘觸發部署流程）
+│   └── src/index.js
 ├── scripts/
 │   ├── fetch_cwa.py        # CWA API 連線測試
 │   └── build_snap.py       # 抓取 CWA 全臺 368 鄉鎮預報並重建 index.html 內的 SNAP
