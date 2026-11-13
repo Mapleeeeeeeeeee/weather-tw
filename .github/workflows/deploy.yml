@@ -4,10 +4,14 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      probe:
+        description: "Only build and deploy when CWA has new data (the Cloudflare cron Worker sets this)"
+        type: boolean
+        default: false
   schedule:
-    # Probe CWA every 15 minutes, all day, at minutes that avoid the top of the hour (GitHub's busiest moment, when scheduled runs can be delayed or dropped).
-    # A probe only costs one request; the real work (fetch, build, deploy) happens only when the data changed.
-    - cron: "7,22,37,52 * * * *"
+    # Fallback only: GitHub throttles and drops scheduled runs. The on-time trigger is the Cloudflare cron Worker in worker/.
+    - cron: "17 * * * *"
 
 concurrency:
   group: deploy
@@ -22,18 +26,18 @@ jobs:
       CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
     steps:
       - uses: actions/checkout@v5
-      # Scheduled runs first ask CWA (one dataset) whether anything is new compared with the live site.
+      # Scheduled and probe runs first ask CWA (one dataset) whether anything is new compared with the live site.
       - name: Probe CWA for new data
         id: probe
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || inputs.probe
         run: python3 scripts/build_snap.py --check
       # Fresh CWA data goes straight into the deployed index.html; it is not committed back.
       # The build refuses to write when the data looks wrong, which fails this job and keeps the live site as is.
       - name: Build weather snapshot
-        if: github.event_name != 'schedule' || steps.probe.outputs.changed == 'true'
+        if: steps.probe.outcome == 'skipped' || steps.probe.outputs.changed == 'true'
         run: python3 scripts/build_snap.py
       - name: Deploy
-        if: github.event_name != 'schedule' || steps.probe.outputs.changed == 'true'
+        if: steps.probe.outcome == 'skipped' || steps.probe.outputs.changed == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

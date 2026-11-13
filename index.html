@@ -827,7 +827,7 @@ function render(animate, dir) {
         .join("") +
       '<p class="hl">' + hilo(Math.max(...list.map((X, i) => isToday ? X.hi : rows[i][2])), Math.min(...list.map((X, i) => isToday ? X.lo : rows[i][1])), Math.max(...uvs)) + '</p></div>'
     : '<div class="top"><p class="temp" id="temp" aria-label="' + (isToday ? "現在 " : "最高 ") + num(A, dA) + ' 度"><span id="tempN"></span><span class="side"><sup>°</sup><small>' + (isToday ? "體感 " + A.cur[2] + "°" : "最高溫") + '</small></span></p>' +
-      (isToday ? '<button type="button" class="hl' + (hlOpen ? " open" : "") + '" id="hlBtn" aria-expanded="' + hlOpen + '" aria-label="高低溫與更多數據">' + hl(A, dA) + '<span class="xw"><span class="xi">' + extra("濕度", A.cur[3], "%") + extra("風", A.w[2], "級") + '</span></span><svg class="pl" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.500 4.500 6 8l3.500-3.500"/></svg></button>'
+      (isToday ? '<button type="button" class="hl' + (hlOpen ? " open" : "") + '" id="hlBtn" aria-expanded="' + hlOpen + '" aria-label="高低溫與更多數據">' + hl(A, dA) + '<span class="xw"><span class="xi">' + extra("濕度", A.cur[3], "%") + (A.w[2] < 0 ? extra("風", "–", "") : extra("風", A.w[2], "級")) + '</span></span><svg class="pl" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.500 4.500 6 8l3.500-3.500"/></svg></button>'
                : '<p class="hl">' + hl(A, dA) + '</p>') + '</div>';
   const rkey = i => state.temp ? "t" : "d" + (B ? i : state.view);
   if (!B) roll($("tempN"), rkey(0), num(A, dA), animate);
@@ -890,7 +890,7 @@ function render(animate, dir) {
       hi: Math.max(...list.map(X => X.days[i][12] > -90 ? X.days[i][12] : X.days[i][2])), pop: Math.max(...list.map(X => X.days[i][3])),
       wet: list.some(X => { const d = X.days[i]; return dayUmb(d[3], kind(d[4]), heavyTxt(d[5])) !== "不用帶傘"; }) })).map(d => ({ ...d, lv: lv(d.hi) }));
     const name = d => d.i === 1 ? "明天" : "週" + WD[new Date(A.days[d.i][0] + "T12:00:00+08:00").getUTCDay()];
-    const cold = nx.find(d => d.lv < base), rain = title === "不用帶傘" && nx.find(d => d.wet), warm = nx.find(d => d.lv > base);
+    const cold = nx.find(d => d.lv < base && d.lv <= 3 && fit.hi - d.hi >= 3), rain = title === "不用帶傘" && nx.find(d => d.wet), warm = nx.find(d => d.lv > base && d.hi - fit.hi >= 3);
     if (cold) tip = '<svg class="down" viewBox="0 0 18 18" aria-hidden="true"><path d="M2.500 5 7 9.500l3-3 5.500 6M11.500 12.500h4v-4"/></svg><span>' + name(cold) + (cold.lv <= 1 ? "變冷" : "轉涼") + "，體感降到 " + cold.hi + "° 左右" + '</span>';
     else if (rain) tip = '<svg class="down" viewBox="0 0 24 24" aria-hidden="true">' + glyph("drop") + '</svg><span>' + name(rain) + "開始有雨" + (rain.pop >= 0 ? "，降雨機率 " + rain.pop + "%" : "") + '</span>';
     else if (warm) tip = '<svg class="up" viewBox="0 0 18 18" aria-hidden="true"><path d="M2.500 13 7 8.500l3 3 5.500-6M11.500 5.500h4v4"/></svg><span>' + name(warm) + (warm.lv === 5 ? "變熱" : "回暖") + "，體感升到 " + warm.hi + "° 左右" + '</span>';

@@ -197,6 +197,16 @@ def build_town(t3, t7, S):
                   S.of(txt_d) if txt_d is not None else -1, S.of(txt_n) if txt_n is not None else -1,
                   pd_ if pd_ is not None else -1, pn if pn is not None else -1,
                   min(flos) if flos else 99, max(fhis) if fhis else -99, uv if uv is not None else 0])
+    # CWA sometimes leaves a few mountain towns without 3-hourly rain/wind rows. Rather than drop the town (or the whole update),
+    # stand in with the daily forecast for rain/weather and mark wind as unknown (beaufort -1, shown as a dash).
+    if not p and d:
+        byday = {r[0]: r for r in d}
+        for off in range(0, HOURLY_ROWS, 3):
+            r = byday.get(dt.datetime.fromtimestamp((s + off) * 3600, TZ).date().isoformat())
+            if r:
+                p.append([off, max(r[3], 0), r[4], r[5]])
+    if not w:
+        w = [[0, S.of("-"), -1]]
     return {"s": s, "h": h, "p": p, "w": w, "d": d}
 
 
