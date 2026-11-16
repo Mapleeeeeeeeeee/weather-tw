@@ -983,15 +983,17 @@ function setTweakOpen(open) {
   if (open) window.scrollTo({ top: 0, behavior: still() ? "auto" : "smooth" });
 }
 
-/* when the data was made (SNAP.at is Taipei time "MM/DD HH:MM"); say so plainly when it has gone stale */
+/* two times: when CWA's forecast last changed (SNAP.u) and when the site last checked (SNAP.at); both are Taipei time "MM/DD HH:MM".
+   so an unchanged forecast reads as "checked, nothing new" rather than as a stale page */
 function showAsOf() {
-  const m = /^(\d+)\/(\d+) (\d+):(\d+)$/.exec(SNAP.at || ""), el = $("asof");
-  if (!m) { el.hidden = true; return; }
+  const el = $("asof"), re = /^(\d+)\/(\d+) (\d+):(\d+)$/, u = SNAP.u || SNAP.at, mu = re.exec(u || ""), mc = re.exec(SNAP.at || "");
+  if (!mu) { el.hidden = true; return; }
   const n = new Date(), pad = x => String(x).padStart(2, "0");
-  const at = y => Date.parse(y + "-" + pad(m[1]) + "-" + pad(m[2]) + "T" + pad(m[3]) + ":" + m[4] + ":00+08:00");
-  let t = at(n.getFullYear()); if (t > Date.now() + 36e5) t = at(n.getFullYear() - 1);
-  const age = (Date.now() - t) / H;
-  el.innerHTML = "資料時間 " + SNAP.at + " · 中央氣象署" + (age > 12 ? " · <b>已超過 " + Math.floor(age) + " 小時沒更新</b>" : "");
+  const ms = (m, y) => Date.parse(y + "-" + pad(m[1]) + "-" + pad(m[2]) + "T" + pad(m[3]) + ":" + m[4] + ":00+08:00");
+  const when = m => { let t = ms(m, n.getFullYear()); if (t > Date.now() + 36e5) t = ms(m, n.getFullYear() - 1); return t; };
+  const age = (Date.now() - when(mu)) / H;
+  const chk = mc ? " · " + (mc[1] === mu[1] && mc[2] === mu[2] ? mc[3] + ":" + mc[4] : SNAP.at) + " 檢查" + (u === SNAP.at ? "，有新預報" : "，沒有新預報") : "";
+  el.innerHTML = "預報更新 " + u + chk + " · 中央氣象署" + (age > 12 ? " · <b>已超過 " + Math.floor(age) + " 小時沒更新</b>" : "");
 }
 function boot() {
   try {

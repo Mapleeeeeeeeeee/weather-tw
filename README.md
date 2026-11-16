@@ -41,7 +41,7 @@ Cloudflare Worker（cron，每 30 分鐘）
 ```
 
 - **為什麼由 Cloudflare Worker 觸發**：GitHub Actions 的 `schedule` 會被節流、常常直接丟掉（實測約 33 小時只跑了 6 次，預期約 130 次），不適合當時鐘。Cloudflare Cron Trigger 會準時執行，所以由 `worker/` 這個 Worker 每 30 分鐘呼叫 GitHub 的 `workflow_dispatch`，GitHub 端只負責 probe、build、deploy。
-- **更新頻率**：Worker 每 30 分鐘觸發一次，每次都會 build 並部署，所以頁面的「資料時間」每 30 分鐘更新一次（即使 CWA 資料沒變）。CWA 約每 3 小時發布一次，新預報最多 30 分鐘內上線。Actions log 的 probe 行會顯示這次資料有沒有真的變。
+- **更新頻率**：Worker 每 30 分鐘觸發一次，每次都會 build 並部署，所以頁面的「資料時間」每 30 分鐘更新一次（即使 CWA 資料沒變）。CWA 約每 3 小時發布一次，新預報最多 30 分鐘內上線。頁面底部會同時寫出兩個時間，例如「預報更新 11/16 08:30 · 11:00 檢查，沒有新預報」：前者是 CWA 內容上次真的變動的時間（`SNAP.u`，指紋沒變就沿用線上頁面的值），後者是最後一次檢查／部署的時間（`SNAP.at`）。超過 12 小時沒有新預報時會標紅提醒。
 - **備援**：`deploy.yml` 仍保留每小時一次的 `schedule`，但它只是保險，不依賴它。
 - **push 到 `main`**：一律重新抓取資料並部署，不經過 probe。
 - **為什麼不用 Pages Deploy Hook**：`weather-tw` 是 direct upload 的 Pages 專案，沒有連接 Git，無法建立 Deploy Hook，所以 build 留在 GitHub Actions。

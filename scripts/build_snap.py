@@ -226,24 +226,36 @@ def probe_datasets(by_id):
     return [by_id[i] for i in PROBE_IDS]
 
 
-def live_fingerprint(url):
-    """The fingerprint inside the deployed page, or None when it has none yet."""
+def live_snap(url):
+    """(at, k, u) of the deployed page, or None when it has no fingerprint yet. u falls back to at on pages from before u existed."""
     req = urllib.request.Request("%s?_=%d" % (url, int(dt.datetime.now().timestamp())), headers={"User-Agent": "WeatherTW/1.0"})
     with urllib.request.urlopen(req, timeout=30) as r:
         html = r.read().decode("utf-8")
-    m = re.search(r'const SNAP = \{"at":"[^"]*","k":"([0-9a-f]+)"', html)
-    return m.group(1) if m else None
+    m = re.search(r'const SNAP = \{"at":"([^"]*)","k":"([0-9a-f]+)"(?:,"u":"([^"]*)")?', html)
+    return (m.group(1), m.group(2), m.group(3) or m.group(1)) if m else None
 
 
 def check(key):
     """Probe 臺北市 + 新北市 against the live site. Prints changed=true/false (also to $GITHUB_OUTPUT)."""
     new = fingerprint(probe_datasets(get_batch(PROBE_IDS, key)))
-    old = live_fingerprint(LIVE_URL)
+    live = live_snap(LIVE_URL)
+    old = live[1] if live else None
     changed = new != old
     print("probe %s, live %s -> changed=%s" % (new, old, str(changed).lower()))
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write("changed=%s\n" % str(changed).lower())
+
+
+def data_time(k, now):
+    """When CWA's content last changed ("MM/DD HH:MM"): the live page's value while the fingerprint is unchanged, otherwise now.
+    `at` moves on every build; this one only moves when the data really did."""
+    try:
+        live = live_snap(LIVE_URL)
+    except Exception as e:  # noqa: BLE001 - offline or live site down: treat the data as new
+        print("live page unreadable (%s); data time = now" % e, file=sys.stderr)
+        live = None
+    return live[2] if live and live[1] == k else now
 
 
 def build(pairs, partial=False):
@@ -259,7 +271,10 @@ def build(pairs, partial=False):
                 raise RuntimeError("%s %s missing in 1-week data" % (c3["LocationsName"], name))
             out[name] = build_town(t3, towns7[name], S)
         counties[c3["LocationsName"]] = out
-    return {"at": dt.datetime.now(TZ).strftime("%m/%d %H:%M"), "k": fingerprint(probe_datasets({"F-" + d3["records"]["Locations"][0]["Dataid"]: d3 for d3, _ in pairs})), "t": S.items, "c": counties}
+    now = dt.datetime.now(TZ).strftime("%m/%d %H:%M")
+    by_id = {"F-" + d3["records"]["Locations"][0]["Dataid"]: d3 for d3, _ in pairs}
+    k = fingerprint([by_id[i] for i in PROBE_IDS if i in by_id] if partial else probe_datasets(by_id))
+    return {"at": now, "k": k, "u": data_time(k, now), "t": S.items, "c": counties}
 
 
 def validate(snap, old, partial):
