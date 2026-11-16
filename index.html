@@ -370,6 +370,8 @@ dialog, .tw { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 @media (max-width: 350px) { :root { --gutter: 16px; --t4: 22px; } .grid { grid-template-columns: repeat(2, 1fr); } .week li { column-gap: var(--s2); } }
 .asof { margin: var(--s4) 0 var(--s6); font-size: var(--t1); color: var(--muted); letter-spacing: .06em; text-align: center; }
+.asof { text-wrap: balance; }
+.asof span { white-space: nowrap; }   /* a long line breaks between the parts, never in the middle of one */
 .asof b { font-weight: 400; }
 .ans .m[hidden], .ans .r[hidden] { display: none; }
 </style>
@@ -992,8 +994,9 @@ function showAsOf() {
   const ms = (m, y) => Date.parse(y + "-" + pad(m[1]) + "-" + pad(m[2]) + "T" + pad(m[3]) + ":" + m[4] + ":00+08:00");
   const when = m => { let t = ms(m, n.getFullYear()); if (t > Date.now() + 36e5) t = ms(m, n.getFullYear() - 1); return t; };
   const age = (Date.now() - when(mu)) / H;
-  const chk = mc ? " · " + (mc[1] === mu[1] && mc[2] === mu[2] ? mc[3] + ":" + mc[4] : SNAP.at) + " 檢查" + (u === SNAP.at ? "，有新預報" : "，沒有新預報") : "";
-  el.innerHTML = "預報更新 " + u + chk + " · 中央氣象署" + (age > 12 ? " · <b>已超過 " + Math.floor(age) + " 小時沒更新</b>" : "");
+  const chk = mc ? (mc[1] === mu[1] && mc[2] === mu[2] ? mc[3] + ":" + mc[4] : SNAP.at) + " 檢查" + (u === SNAP.at ? "，有新預報" : "，沒有新預報") : "";
+  const parts = ["預報更新 " + u, chk, "中央氣象署", age > 12 ? "<b>已超過 " + Math.floor(age) + " 小時沒更新</b>" : ""].filter(Boolean);
+  el.innerHTML = parts.map(x => "<span>" + x + "</span>").join(" · ");
 }
 function boot() {
   try {
