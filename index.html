@@ -171,7 +171,7 @@ button.hl { cursor: pointer; }
 .lg .lh:first-child { color: var(--ink); font-weight: var(--bold); }
 .lg .lc { display: flex; align-items: center; justify-content: center; font-family: var(--font-fig); font-size: var(--t3); font-weight: 500; color: var(--ink); }
 .lg .lc small { font-size: .7em; margin-left: 1px; }
-/* rain reads by how filled the cell is, on any background: a wash for 40 to 60%, solid for 70% and up */
+/* rain reads by how filled the cell is, on any background: a wash for 30 to 60%, solid for 70% and up */
 :root { --under: var(--bot); }
 .on-top { --under: var(--top); }
 .t1 { background: color-mix(in oklab, var(--ink) 15%, transparent); }
@@ -370,6 +370,8 @@ dialog, .tw { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 @media (max-width: 350px) { :root { --gutter: 16px; --t4: 22px; } .grid { grid-template-columns: repeat(2, 1fr); } .week li { column-gap: var(--s2); } }
 .asof { margin: var(--s4) 0 var(--s6); font-size: var(--t1); color: var(--muted); letter-spacing: .06em; text-align: center; }
+.asof { text-wrap: balance; }
+.asof span { white-space: nowrap; }   /* a long line breaks between the parts, never in the middle of one */
 .asof b { font-weight: 400; }
 .ans .m[hidden], .ans .r[hidden] { display: none; }
 </style>
@@ -725,7 +727,7 @@ const hilo = (hi, lo, uv) => '<i class="hi" aria-hidden="true">' + UP + '</i><sp
 const extra = (label, v, unit) => '<i aria-hidden="true"><small>' + label + '</small></i><span aria-label="' + label + ' ' + v + unit + '">' + v + '<small>' + unit + '</small></span>';
 const rainTxt = v => v < 0 ? "" : '<span aria-label="降雨機率 ' + fmt(v) + '"><svg class="dr" viewBox="0 0 24 24" aria-hidden="true">' + glyph("drop") + '</svg>' + fmt(v) + '</span>';
 let hlOpen = false;
-const tier = p => p >= 70 ? 2 : p >= 40 ? 1 : 0;
+const tier = p => p >= 70 ? 2 : p >= 30 ? 1 : 0;   // 30% is also where the tip turns to 建議帶傘, so the fill and the animation start with it
 const band = (pops, i) => { const t = tier(pops[i]); return t ? " t" + t + (i > 0 && tier(pops[i - 1]) ? "" : " rs") + (i < pops.length - 1 && tier(pops[i + 1]) ? "" : " re") : ""; };
 /* lanes: one row of cells per place under a shared row of labels */
 const lanes = (names, head, rows, wide, ics, texts) => {
@@ -744,7 +746,7 @@ function hourStrip(X, per = X.per, today = true) {
     '<div class="hc' + (tMax !== tMin && i === iMax ? " hot" : tMax !== tMin && i === iMin ? " cold" : "") +
     band(pops, i) + '" style="--k:' + Math.min(i, 8) + '">' +
     '<span class="n">' + (i || !today ? q.h + " 時" : "現在") + '</span>' + icon(q.code, isNight(q.h)) +
-    '<span class="t">' + q.T + '°</span><span class="p' + (q.pop >= 40 ? " wet" : "") + '">' + q.pop + '<small>%</small></span></div>').join("") + '</div></div>';
+    '<span class="t">' + q.T + '°</span><span class="p' + (q.pop >= 30 ? " wet" : "") + '">' + q.pop + '<small>%</small></span></div>').join("") + '</div></div>';
 }
 /* the hours of one day, as far as the 3-hourly rain forecast reaches (CWA gives rain every 3 hours, so each figure is held for its 3 hours) */
 function dayHours(X, date) {
@@ -992,8 +994,9 @@ function showAsOf() {
   const ms = (m, y) => Date.parse(y + "-" + pad(m[1]) + "-" + pad(m[2]) + "T" + pad(m[3]) + ":" + m[4] + ":00+08:00");
   const when = m => { let t = ms(m, n.getFullYear()); if (t > Date.now() + 36e5) t = ms(m, n.getFullYear() - 1); return t; };
   const age = (Date.now() - when(mu)) / H;
-  const chk = mc ? " · " + (mc[1] === mu[1] && mc[2] === mu[2] ? mc[3] + ":" + mc[4] : SNAP.at) + " 檢查" + (u === SNAP.at ? "，有新預報" : "，沒有新預報") : "";
-  el.innerHTML = "預報更新 " + u + chk + " · 中央氣象署" + (age > 12 ? " · <b>已超過 " + Math.floor(age) + " 小時沒更新</b>" : "");
+  const chk = mc ? (mc[1] === mu[1] && mc[2] === mu[2] ? mc[3] + ":" + mc[4] : SNAP.at) + " 檢查" + (u === SNAP.at ? "，有新預報" : "，沒有新預報") : "";
+  const parts = ["預報更新 " + u, chk, "中央氣象署", age > 12 ? "<b>已超過 " + Math.floor(age) + " 小時沒更新</b>" : ""].filter(Boolean);
+  el.innerHTML = parts.map(x => "<span>" + x + "</span>").join(" · ");
 }
 function boot() {
   try {
