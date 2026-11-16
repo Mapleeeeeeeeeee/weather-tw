@@ -794,21 +794,24 @@ function pullToRefresh() {
   const hide = () => { box.classList.remove("drag"); box.style.opacity = 0; box.style.transform = ""; };
   document.addEventListener("touchstart", e => {
     on = false; dy = 0;
-    if (busy || e.touches.length !== 1 || window.scrollY > 0 || sheet.open || e.target.closest(".hours, .lsc, input")) return;
+    if (busy || e.touches.length !== 1 || window.scrollY > 2 || sheet.open || e.target.closest(".hours, .lsc, input")) return;
     y0 = e.touches[0].clientY; on = true;
   }, { passive: true });
   document.addEventListener("touchmove", e => {
     if (!on) return;
     dy = e.touches[0].clientY - y0;
-    if (dy <= 0 || window.scrollY > 0) { if (dy <= 0) { on = false; hide(); } return; }
+    if (dy <= 0 || window.scrollY > 2) { if (dy <= 0) { on = false; hide(); } return; }
     if (e.cancelable) e.preventDefault();
     box.classList.add("drag");
     const px = Math.min(dy * .5, 90);
     show(px, px >= TH * .5 ? "放開更新" : "下拉更新");
   }, { passive: false });
   const end = async () => {
-    if (!on) return; on = false;
-    if (dy * .5 < TH * .5) return hide();
+    // Safari can rubber-band anyway (scrollY goes negative) even when the move was cancelled: that overshoot counts as the pull too
+    const bounced = window.scrollY < -40;
+    if (!on && !bounced) return;
+    if (busy) return; on = false;
+    if (!bounced && dy * .5 < TH * .5) return hide();
     busy = true; box.classList.remove("drag"); show(60, "更新中…");
     try { await reloadData(); label.textContent = "已更新"; }
     catch (e) { label.textContent = "更新失敗，稍後再試"; }
