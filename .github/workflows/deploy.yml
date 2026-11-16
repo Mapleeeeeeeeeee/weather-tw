@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       probe:
-        description: "Only build and deploy when CWA has new data (the Cloudflare cron Worker sets this)"
+        description: "Also log whether CWA has new data compared with the live site (the Cloudflare cron Worker sets this)"
         type: boolean
         default: false
   schedule:
@@ -26,18 +26,18 @@ jobs:
       CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
     steps:
       - uses: actions/checkout@v5
-      # Scheduled and probe runs first ask CWA (one dataset) whether anything is new compared with the live site.
+      # Informational only: logs whether 臺北市 + 新北市 changed compared with the live site. Every run rebuilds and deploys
+      # regardless, so the page's time moves on every check, even when CWA published nothing new.
       - name: Probe CWA for new data
         id: probe
         if: github.event_name == 'schedule' || inputs.probe
+        continue-on-error: true
         run: python3 scripts/build_snap.py --check
       # Fresh CWA data goes straight into the deployed index.html; it is not committed back.
       # The build refuses to write when the data looks wrong, which fails this job and keeps the live site as is.
       - name: Build weather snapshot
-        if: steps.probe.outcome == 'skipped' || steps.probe.outputs.changed == 'true'
         run: python3 scripts/build_snap.py
       - name: Deploy
-        if: steps.probe.outcome == 'skipped' || steps.probe.outputs.changed == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

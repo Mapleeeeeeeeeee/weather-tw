@@ -36,13 +36,12 @@
 ```
 Cloudflare Worker（cron，每 30 分鐘）
    └─ workflow_dispatch(probe=true) ─▶ GitHub Actions（deploy.yml）
-        ├─ Probe：向 CWA 要一份資料集，和線上網站的 fingerprint 比對
-        ├─ 沒變 ─▶ 結束（約 20 秒，不 build、不部署）
-        └─ 有變 ─▶ build_snap.py 重建 SNAP ─▶ wrangler pages deploy
+        ├─ Probe（只記 log）：臺北市＋新北市兩份資料集和線上 fingerprint 比對，印出 changed=true/false
+        └─ 一律 build_snap.py 重建 SNAP ─▶ wrangler pages deploy（資料相同也會部署，頁面時間照樣更新）
 ```
 
 - **為什麼由 Cloudflare Worker 觸發**：GitHub Actions 的 `schedule` 會被節流、常常直接丟掉（實測約 33 小時只跑了 6 次，預期約 130 次），不適合當時鐘。Cloudflare Cron Trigger 會準時執行，所以由 `worker/` 這個 Worker 每 30 分鐘呼叫 GitHub 的 `workflow_dispatch`，GitHub 端只負責 probe、build、deploy。
-- **更新頻率**：Worker 每 30 分鐘檢查一次，但只有 CWA 真的發布新預報時才會 build 與部署。CWA 約每 3 小時發布一次，所以**網站約每 3 小時更新一次，在 CWA 發布後最多 30 分鐘內上線**。
+- **更新頻率**：Worker 每 30 分鐘觸發一次，每次都會 build 並部署，所以頁面的「資料時間」每 30 分鐘更新一次（即使 CWA 資料沒變）。CWA 約每 3 小時發布一次，新預報最多 30 分鐘內上線。頁面底部會同時寫出兩個時間，例如「預報更新 11/16 08:30 · 11:00 檢查，沒有新預報」：前者是 CWA 內容上次真的變動的時間（`SNAP.u`，指紋沒變就沿用線上頁面的值），後者是最後一次檢查／部署的時間（`SNAP.at`）。超過 12 小時沒有新預報時會標紅提醒。
 - **備援**：`deploy.yml` 仍保留每小時一次的 `schedule`，但它只是保險，不依賴它。
 - **push 到 `main`**：一律重新抓取資料並部署，不經過 probe。
 - **為什麼不用 Pages Deploy Hook**：`weather-tw` 是 direct upload 的 Pages 專案，沒有連接 Git，無法建立 Deploy Hook，所以 build 留在 GitHub Actions。
