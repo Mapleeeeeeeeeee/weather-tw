@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2025-01-01"
 
 # Cloudflare cron is on time (GitHub's `schedule` is throttled and often dropped), so this Worker is the clock:
-# every 30 minutes it asks GitHub Actions to probe CWA and, only when the data changed, build and deploy.
+# every 30 minutes it asks GitHub Actions to rebuild and deploy (the page's time moves on every check; the probe only logs whether CWA changed).
 # CWA publishes forecasts about every 3 hours, so 30 minutes is plenty.
 [triggers]
 crons = ["*/30 * * * *"]
