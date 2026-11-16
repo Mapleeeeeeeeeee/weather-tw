@@ -36,7 +36,7 @@
 ```
 Cloudflare Worker（cron，每 30 分鐘）
    └─ workflow_dispatch(probe=true) ─▶ GitHub Actions（deploy.yml）
-        ├─ Probe：向 CWA 要一份資料集，和線上網站的 fingerprint 比對
+        ├─ Probe：向 CWA 要臺北市＋新北市兩份資料集（一次請求），和線上網站的 fingerprint 比對
         ├─ 沒變 ─▶ 結束（約 20 秒，不 build、不部署）
         └─ 有變 ─▶ build_snap.py 重建 SNAP ─▶ wrangler pages deploy
 ```

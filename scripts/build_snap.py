@@ -36,6 +36,8 @@ API = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/{}?Authorization={}&for
 # 22 counties: (3-day id, 1-week id); 001/003 Yilan, 005/007 Taoyuan ... 085/087 Kinmen
 COUNTY_IDS = [("F-D0047-%03d" % n, "F-D0047-%03d" % (n + 2)) for n in range(1, 87, 4)]
 LIVE_URL = "https://weather-tw.pages.dev/"
+# The probe watches 臺北市 + 新北市 (3-day datasets). CWA releases every county together, so these two stand in for all of them.
+PROBE_IDS = ["F-D0047-061", "F-D0047-069"]
 BATCH = 5          # datasets per request (CWA maximum)
 WORKERS = 3        # requests in flight at once; kept low to be gentle with CWA
 HOURLY_ROWS = 96  # how many hourly rows to keep per town
@@ -210,10 +212,18 @@ def build_town(t3, t7, S):
     return {"s": s, "h": h, "p": p, "w": w, "d": d}
 
 
-def fingerprint(dataset):
-    """Short hash of one dataset's content. CWA gives no publish time, so a changed hash is how we notice a new release."""
-    body = json.dumps(dataset["records"], sort_keys=True, ensure_ascii=False)
+def fingerprint(datasets):
+    """Short hash of the probe datasets' content. CWA gives no publish time, so a changed hash is how we notice a new release."""
+    body = json.dumps([d["records"] for d in datasets], sort_keys=True, ensure_ascii=False)
     return hashlib.sha1(body.encode("utf-8")).hexdigest()[:12]
+
+
+def probe_datasets(by_id):
+    """The 3-day datasets for 臺北市 and 新北市, in a fixed order, out of a {dataset id: dataset} map."""
+    missing = [i for i in PROBE_IDS if i not in by_id]
+    if missing:
+        raise RuntimeError("probe datasets missing: %s" % ", ".join(missing))
+    return [by_id[i] for i in PROBE_IDS]
 
 
 def live_fingerprint(url):
@@ -226,8 +236,8 @@ def live_fingerprint(url):
 
 
 def check(key):
-    """Probe one dataset against the live site. Prints changed=true/false (also to $GITHUB_OUTPUT)."""
-    new = fingerprint(get_json(COUNTY_IDS[0][0], key))
+    """Probe 臺北市 + 新北市 against the live site. Prints changed=true/false (also to $GITHUB_OUTPUT)."""
+    new = fingerprint(probe_datasets(get_batch(PROBE_IDS, key)))
     old = live_fingerprint(LIVE_URL)
     changed = new != old
     print("probe %s, live %s -> changed=%s" % (new, old, str(changed).lower()))
@@ -249,7 +259,7 @@ def build(pairs, partial=False):
                 raise RuntimeError("%s %s missing in 1-week data" % (c3["LocationsName"], name))
             out[name] = build_town(t3, towns7[name], S)
         counties[c3["LocationsName"]] = out
-    return {"at": dt.datetime.now(TZ).strftime("%m/%d %H:%M"), "k": fingerprint(pairs[0][0]), "t": S.items, "c": counties}
+    return {"at": dt.datetime.now(TZ).strftime("%m/%d %H:%M"), "k": fingerprint(probe_datasets({"F-" + d3["records"]["Locations"][0]["Dataid"]: d3 for d3, _ in pairs})), "t": S.items, "c": counties}
 
 
 def validate(snap, old, partial):
